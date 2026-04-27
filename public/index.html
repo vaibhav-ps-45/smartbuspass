@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartBusPass</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#f5f4f0;min-height:100vh;color:#1a1a1a}
+button{cursor:pointer;font-family:'DM Sans',sans-serif}
+input,select{font-family:'DM Sans',sans-serif}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+
+const CONFIG = {
+  APP_NAME: "SmartBusPass",
+  API_BASE: "/api/v1",
+  AUTH_TOKEN_KEY: "sbp_token",
+  DEFAULT_CURRENCY: "₹",
+};
+
+const ROUTES = [
+  {id:"R01", from:"Amritsar", to:"Chandigarh", price:320, duration:"3h 10m", seats:18, type:"Express"},
+  {id:"R02", from:"Amritsar", to:"Ludhiana",   price:180, duration:"1h 40m", seats:26, type:"Local"},
+  {id:"R03", from:"Amritsar", to:"Delhi",       price:540, duration:"6h 00m", seats:12, type:"Volvo AC"},
+  {id:"R04", from:"Amritsar", to:"Jalandhar",   price:120, duration:"1h 10m", seats:34, type:"Local"},
+  {id:"R05", from:"Amritsar", to:"Shimla",      price:420, duration:"5h 20m", seats:8,  type:"Express"},
+];
+
+const CITIES = ["Amritsar","Chandigarh","Ludhiana","Delhi","Jalandhar","Shimla","Patiala","Bathinda"];
+
+const S = {
+  shell:{minHeight:"100vh",background:"#f5f4f0",display:"flex",flexDirection:"column"},
+  header:{background:"#fff",borderBottom:"1px solid #e8e5df",padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:100},
+  logo:{display:"flex",alignItems:"center",gap:8,cursor:"pointer"},
+  logoIcon:{width:28,height:28,background:"#1a5ce5",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center"},
+  logoText:{fontWeight:600,fontSize:17,letterSpacing:"-0.3px",color:"#1a1a1a"},
+  nav:{display:"flex",gap:4},
+  main:{flex:1,padding:"28px 24px",maxWidth:720,margin:"0 auto",width:"100%"},
+  navBtn:(active)=>({border:"none",background:active?"#f0edff":"transparent",color:active?"#1a5ce5":"#666",padding:"6px 14px",borderRadius:8,fontSize:13,fontWeight:active?500:400,cursor:"pointer"}),
+  card:{background:"#fff",borderRadius:12,border:"1px solid #e8e5df",padding:"20px 20px",marginBottom:12},
+  routeCard:{background:"#fff",borderRadius:12,border:"1px solid #e8e5df",padding:"18px 20px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between"},
+  passCard:{background:"#fff",borderRadius:16,border:"2px dashed #c8d8ff",padding:"24px 24px",marginBottom:12,position:"relative",overflow:"hidden"},
+  field:{display:"flex",flexDirection:"column",gap:6,marginBottom:16},
+  label:{fontSize:12,fontWeight:500,color:"#666",letterSpacing:"0.3px",textTransform:"uppercase"},
+  input:{border:"1px solid #ddd",borderRadius:8,padding:"10px 14px",fontSize:14,outline:"none",width:"100%",background:"#faf9f7",color:"#1a1a1a"},
+  select:{border:"1px solid #ddd",borderRadius:8,padding:"10px 14px",fontSize:14,outline:"none",width:"100%",background:"#faf9f7",color:"#1a1a1a",appearance:"none"},
+  btnPrimary:{background:"#1a5ce5",color:"#fff",border:"none",borderRadius:8,padding:"11px 22px",fontSize:14,fontWeight:500,cursor:"pointer",width:"100%"},
+  btnOutline:{background:"transparent",color:"#1a5ce5",border:"1px solid #1a5ce5",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:500,cursor:"pointer"},
+  btnSmall:{background:"#1a5ce5",color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:13,fontWeight:500,cursor:"pointer"},
+  badge:(color)=>({display:"inline-block",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:500,...{
+    blue:{background:"#e8f0fe",color:"#1a5ce5"},
+    green:{background:"#e6f4ea",color:"#137333"},
+    amber:{background:"#fff8e1",color:"#b45309"},
+    gray:{background:"#f0ede8",color:"#555"},
+  }[color]}),
+  row:{display:"flex",gap:12},
+  col:{flex:1},
+  divider:{height:1,background:"#e8e5df",margin:"20px 0"},
+  mono:{fontFamily:"monospace",fontSize:12,color:"#1a5ce5",letterSpacing:"0.5px"},
+  hint:{fontSize:12,color:"#999",marginTop:4},
+  successBox:{background:"#e6f4ea",border:"1px solid #a8d5b5",borderRadius:10,padding:"32px 24px",textAlign:"center"},
+  errorBox:{background:"#fce8e6",border:"1px solid #f5c6c3",borderRadius:10,padding:"12px 16px",fontSize:13,color:"#c0392b",marginBottom:16},
+  sectionTitle:{fontSize:18,fontWeight:600,marginBottom:4,letterSpacing:"-0.3px"},
+  sectionSub:{fontSize:13,color:"#888",marginBottom:20},
+  emptyState:{textAlign:"center",padding:"48px 20px",color:"#aaa",fontSize:14},
+  dot:{width:8,height:8,borderRadius:4,display:"inline-block",marginRight:6},
+};
+
+const BusIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1" y="3" width="22" height="16" rx="2"/><path d="M1 10h22M7 19v2M17 19v2"/>
+    <circle cx="7" cy="16" r="1.5" fill="#fff" stroke="none"/><circle cx="17" cy="16" r="1.5" fill="#fff" stroke="none"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#137333" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>
+  </svg>
+);
+
+const ArrowIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a5ce5" strokeWidth="2.5" strokeLinecap="round">
+    <path d="M5 12h14M13 6l6 6-6 6"/>
+  </svg>
+);
+
+const TicketIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a5ce5" strokeWidth="1.8" strokeLinecap="round">
+    <rect x="1" y="6" width="22" height="12" rx="2"/>
+    <polyline points="1 10 6 10 6 14 1 14"/><polyline points="18 10 23 10 23 14 18 14"/>
+  </svg>
+);
+
+function Header({page, setPage, isLoggedIn, onLogout}) {
+  const pages = isLoggedIn
+    ? [{id:"home",label:"Routes"},{id:"mypasses",label:"My Passes"}]
+    : [{id:"home",label:"Routes"},{id:"login",label:"Sign In"}];
+  return (
+    <header style={S.header}>
+      <div style={S.logo} onClick={()=>setPage("home")}>
+        <div style={S.logoIcon}><BusIcon/></div>
+        <span style={S.logoText}>{CONFIG.APP_NAME}</span>
+      </div>
+      <nav style={S.nav}>
+        {pages.map(p=>(
+          <button key={p.id} style={S.navBtn(page===p.id)} onClick={()=>setPage(p.id)}>{p.label}</button>
+        ))}
+        {isLoggedIn && <button style={{...S.navBtn(false),color:"#e74c3c"}} onClick={onLogout}>Log out</button>}
+      </nav>
+    </header>
+  );
+}
+
+function HomePage({onBook, isLoggedIn, setPage}) {
+  const [from, setFrom] = useState("Amritsar");
+  const [to, setTo] = useState("");
+  const [results, setResults] = useState(ROUTES);
+  const [searched, setSearched] = useState(false);
+
+  function search() {
+    const filtered = ROUTES.filter(r =>
+      (!from || r.from.toLowerCase().includes(from.toLowerCase())) &&
+      (!to   || r.to.toLowerCase().includes(to.toLowerCase()))
+    );
+    setResults(filtered);
+    setSearched(true);
+  }
+
+  function handleBook(route) {
+    if(!isLoggedIn){setPage("login");return;}
+    onBook(route);
+  }
+
+  return (
+    <div>
+      <div style={{marginBottom:24}}>
+        <h1 style={S.sectionTitle}>Find your route</h1>
+        <p style={S.sectionSub}>Search and book bus passes across Punjab & beyond</p>
+      </div>
+      <div style={S.card}>
+        <div style={S.row}>
+          <div style={S.col}>
+            <div style={S.field}>
+              <label style={S.label}>From</label>
+              <select style={S.select} value={from} onChange={e=>setFrom(e.target.value)}>
+                <option value="">Any city</option>
+                {CITIES.map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={S.col}>
+            <div style={S.field}>
+              <label style={S.label}>To</label>
+              <select style={S.select} value={to} onChange={e=>setTo(e.target.value)}>
+                <option value="">Any city</option>
+                {CITIES.map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+        <button style={S.btnPrimary} onClick={search}>Search routes</button>
+      </div>
+      {results.length === 0 && searched && (
+        <div style={S.emptyState}>No routes found for this combination.</div>
+      )}
+      {results.map(route=>(
+        <RouteCard key={route.id} route={route} onBook={()=>handleBook(route)}/>
+      ))}
+    </div>
+  );
+}
+
+function RouteCard({route, onBook}) {
+  const typeColor = {Express:"blue","Volvo AC":"amber",Local:"gray"}[route.type]||"gray";
+  return (
+    <div style={S.routeCard}>
+      <div style={{flex:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+          <span style={{fontWeight:600,fontSize:15}}>{route.from}</span>
+          <span style={{color:"#bbb",fontSize:12}}>──</span>
+          <ArrowIcon/>
+          <span style={{color:"#bbb",fontSize:12}}>──</span>
+          <span style={{fontWeight:600,fontSize:15}}>{route.to}</span>
+        </div>
+        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={S.badge(typeColor)}>{route.type}</span>
+          <span style={{fontSize:12,color:"#888"}}>{route.duration}</span>
+          <span style={{fontSize:12,color:"#888"}}>{route.seats} seats</span>
+          <span style={{...S.mono,fontSize:12}}>{route.id}</span>
+        </div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10}}>
+        <span style={{fontWeight:700,fontSize:18}}>{CONFIG.DEFAULT_CURRENCY}{route.price}</span>
+        <button style={S.btnSmall} onClick={onBook}>Book pass</button>
+      </div>
+    </div>
+  );
+}
+
+function LoginPage({onLogin}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function validate() {
+    if(!email.includes("@")) return "Enter a valid email address.";
+    if(password.length < 6)   return "Password must be at least 6 characters.";
+    return null;
+  }
+
+  async function handleLogin() {
+    const err = validate();
+    if(err){setError(err);return;}
+    setLoading(true);setError("");
+    await new Promise(r=>setTimeout(r,800));
+    setLoading(false);
+    onLogin({email, name: email.split("@")[0]});
+  }
+
+  return (
+    <div style={{maxWidth:400,margin:"0 auto"}}>
+      <div style={{marginBottom:24}}>
+        <h1 style={S.sectionTitle}>Sign in</h1>
+        <p style={S.sectionSub}>Access your passes and booking history</p>
+      </div>
+      <div style={S.card}>
+        {error && <div style={S.errorBox}>{error}</div>}
+        <div style={S.field}>
+          <label style={S.label}>Email</label>
+          <input style={S.input} type="email" placeholder="you@example.com"
+            value={email} onChange={e=>setEmail(e.target.value)}/>
+        </div>
+        <div style={S.field}>
+          <label style={S.label}>Password</label>
+          <input style={S.input} type="password" placeholder="••••••••"
+            value={password} onChange={e=>setPassword(e.target.value)}/>
+          <span style={S.hint}>Demo: any email + 6+ character password</span>
+        </div>
+        <button style={{...S.btnPrimary,opacity:loading?0.7:1}} onClick={handleLogin} disabled={loading}>
+          {loading?"Signing in…":"Sign in"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BookingPage({route, user, onConfirm, setPage}) {
+  const today = new Date().toISOString().split("T")[0];
+  const [date, setDate] = useState(today);
+  const [qty, setQty] = useState(1);
+  const [confirmed, setConfirmed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if(!route) return (
+    <div style={S.emptyState}>
+      No route selected.{" "}
+      <button style={S.btnOutline} onClick={()=>setPage("home")}>Browse routes</button>
+    </div>
+  );
+
+  async function confirmBooking() {
+    setLoading(true);
+    await new Promise(r=>setTimeout(r,900));
+    setLoading(false);
+    const booking = {
+      id: "BK" + Math.random().toString(36).slice(2,8).toUpperCase(),
+      route, date, qty,
+      user: user.name,
+      status:"Active",
+      bookedAt: new Date().toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}),
+    };
+    onConfirm(booking);
+    setConfirmed(true);
+  }
+
+  if(confirmed) return (
+    <div style={{maxWidth:440,margin:"0 auto",textAlign:"center"}}>
+      <div style={S.successBox}>
+        <div style={{marginBottom:12}}><CheckIcon/></div>
+        <div style={{fontWeight:600,fontSize:16,color:"#137333",marginBottom:4}}>Booking confirmed!</div>
+        <div style={{fontSize:13,color:"#2e7d32"}}>Your pass has been added to My Passes.</div>
+      </div>
+      <div style={{marginTop:16,display:"flex",gap:10}}>
+        <button style={{...S.btnOutline,flex:1}} onClick={()=>setPage("home")}>Book another</button>
+        <button style={{...S.btnPrimary,flex:1}} onClick={()=>setPage("mypasses")}>View my passes</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:480,margin:"0 auto"}}>
+      <div style={{marginBottom:20}}>
+        <h1 style={S.sectionTitle}>Confirm booking</h1>
+        <p style={S.sectionSub}>Review your journey details below</p>
+      </div>
+      <div style={S.card}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+          <div>
+            <div style={{fontWeight:600,fontSize:16,marginBottom:6}}>{route.from} → {route.to}</div>
+            <span style={S.badge("blue")}>{route.type}</span>
+          </div>
+          <span style={{...S.mono,fontSize:11}}>{route.id}</span>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+          <span style={{fontSize:13,color:"#888"}}>Duration</span>
+          <span style={{fontSize:13,fontWeight:500}}>{route.duration}</span>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:13,color:"#888"}}>Base fare</span>
+          <span style={{fontSize:13,fontWeight:500}}>{CONFIG.DEFAULT_CURRENCY}{route.price}</span>
+        </div>
+      </div>
+      <div style={S.card}>
+        <div style={S.field}>
+          <label style={S.label}>Travel date</label>
+          <input style={S.input} type="date" value={date} min={today} onChange={e=>setDate(e.target.value)}/>
+        </div>
+        <div style={S.field}>
+          <label style={S.label}>Number of passes</label>
+          <select style={S.select} value={qty} onChange={e=>setQty(Number(e.target.value))}>
+            {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div style={S.divider}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <span style={{fontWeight:500}}>Total</span>
+          <span style={{fontWeight:700,fontSize:20}}>{CONFIG.DEFAULT_CURRENCY}{route.price * qty}</span>
+        </div>
+        <button style={{...S.btnPrimary,opacity:loading?0.7:1}} onClick={confirmBooking} disabled={loading}>
+          {loading?"Processing…":"Confirm & pay"}
+        </button>
+        <p style={{...S.hint,textAlign:"center",marginTop:10}}>Demo mode — no real payment processed</p>
+      </div>
+    </div>
+  );
+}
+
+function MyPassesPage({passes, isLoggedIn, setPage}) {
+  if(!isLoggedIn) return (
+    <div style={S.emptyState}>
+      <div style={{marginBottom:16}}>Sign in to view your passes.</div>
+      <button style={{...S.btnPrimary,width:"auto",padding:"10px 28px"}} onClick={()=>setPage("login")}>Sign in</button>
+    </div>
+  );
+  if(passes.length===0) return (
+    <div>
+      <div style={{marginBottom:24}}>
+        <h1 style={S.sectionTitle}>My passes</h1>
+        <p style={S.sectionSub}>Your booked bus passes will appear here</p>
+      </div>
+      <div style={S.emptyState}>
+        <div style={{marginBottom:16}}>No passes booked yet.</div>
+        <button style={{...S.btnPrimary,width:"auto",padding:"10px 28px"}} onClick={()=>setPage("home")}>Browse routes</button>
+      </div>
+    </div>
+  );
+  return (
+    <div>
+      <div style={{marginBottom:24}}>
+        <h1 style={S.sectionTitle}>My passes</h1>
+        <p style={S.sectionSub}>{passes.length} active pass{passes.length!==1?"es":""}</p>
+      </div>
+      {[...passes].reverse().map(p=><PassCard key={p.id} pass={p}/>)}
+    </div>
+  );
+}
+
+function PassCard({pass}) {
+  return (
+    <div style={S.passCard}>
+      <div style={{position:"absolute",top:0,left:0,bottom:0,width:6,background:"#1a5ce5",borderRadius:"16px 0 0 16px"}}/>
+      <div style={{paddingLeft:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <TicketIcon/>
+            <div>
+              <div style={{fontWeight:600,fontSize:15}}>{pass.route.from} → {pass.route.to}</div>
+              <div style={{fontSize:12,color:"#888",marginTop:1}}>Booked {pass.bookedAt}</div>
+            </div>
+          </div>
+          <span style={S.badge("green")}>
+            <span style={{...S.dot,background:"#34a853"}}/>
+            {pass.status}
+          </span>
+        </div>
+        <div style={{display:"flex",gap:24,flexWrap:"wrap",marginBottom:12}}>
+          {[
+            ["Date", new Date(pass.date).toLocaleDateString("en-IN",{dateStyle:"medium"})],
+            ["Passes", pass.qty],
+            ["Type", pass.route.type],
+            ["Total", `${CONFIG.DEFAULT_CURRENCY}${pass.route.price*pass.qty}`],
+          ].map(([label,value])=>(
+            <div key={label}>
+              <div style={{fontSize:11,color:"#aaa",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.3px"}}>{label}</div>
+              <div style={{fontSize:13,fontWeight:500}}>{value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{borderTop:"1px dashed #d0d8f0",paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={S.mono}>{pass.id}</span>
+          <span style={{fontSize:11,color:"#bbb"}}>Valid for travel on selected date</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState("home");
+  const [user, setUser] = useState(null);
+  const [selectedRoute, setSelectedRoute] = useState(null);
+  const [passes, setPasses] = useState([]);
+
+  function handleLogin(u){setUser(u);setPage("home");}
+  function handleLogout(){setUser(null);setPage("home");}
+  function handleBook(route){setSelectedRoute(route);setPage("booking");}
+  function handleConfirm(booking){setPasses(prev=>[...prev,booking]);}
+
+  const pageMap = {
+    home:    <HomePage onBook={handleBook} isLoggedIn={!!user} setPage={setPage}/>,
+    login:   <LoginPage onLogin={handleLogin}/>,
+    booking: <BookingPage route={selectedRoute} user={user} onConfirm={handleConfirm} setPage={setPage}/>,
+    mypasses:<MyPassesPage passes={passes} isLoggedIn={!!user} setPage={setPage}/>,
+  };
+
+  return (
+    <div style={S.shell}>
+      <header style={S.header}>
+        <div style={S.logo} onClick={()=>setPage("home")}>
+          <div style={S.logoIcon}><BusIcon/></div>
+          <span style={S.logoText}>{CONFIG.APP_NAME}</span>
+        </div>
+        <nav style={S.nav}>
+          {(user
+            ? [{id:"home",label:"Routes"},{id:"mypasses",label:"My Passes"}]
+            : [{id:"home",label:"Routes"},{id:"login",label:"Sign In"}]
+          ).map(p=>(
+            <button key={p.id} style={S.navBtn(page===p.id)} onClick={()=>setPage(p.id)}>{p.label}</button>
+          ))}
+          {user && <button style={{...S.navBtn(false),color:"#e74c3c"}} onClick={handleLogout}>Log out</button>}
+        </nav>
+      </header>
+
+      {user && (
+        <div style={{background:"#eef3ff",borderBottom:"1px solid #d5e0ff",padding:"7px 24px",fontSize:12,color:"#1a5ce5",textAlign:"center"}}>
+          Signed in as <strong>{user.name}</strong>
+        </div>
+      )}
+
+      <main style={S.main}>
+        {pageMap[page] || pageMap.home}
+      </main>
+
+      <footer style={{borderTop:"1px solid #e8e5df",padding:"12px 24px",textAlign:"center",fontSize:11,color:"#bbb",background:"#fff"}}>
+        SmartBusPass · Demo mode · No real payments processed
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
