@@ -118,6 +118,19 @@ It can be extended with:
 
 ---
 
+## 📸 Preview
+
+### Home Page
+![Home](screenshots/home.png)
+
+### Booking Page
+![Booking](screenshots/booking.png)
+
+### My Pass
+![My Pass](screenshots/mypass.png)
+
+---
+
 ## 👨‍💻 Author
 
 Vaibhav Pratap Singh
